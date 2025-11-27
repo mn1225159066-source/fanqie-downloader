@@ -1,0 +1,46 @@
+name: Windows EXE Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install project requirements (in Python app subfolder)
+        shell: pwsh
+        run: |
+          Set-Location .\鐖櫕杞欢
+          python -m pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+          python -m pip install --no-cache-dir pyinstaller -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+      - name: Build Windows executable with PyInstaller
+        shell: pwsh
+        run: |
+          Set-Location .\鐖櫕杞欢
+          python -m PyInstaller --clean --noconfirm FanqieDownloader_win.spec
+
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: FanqieDownloader-windows-dist
+          path: |
+            鐖櫕杞欢/dist/**
+            鐖櫕杞欢/build/**
+          if-no-files-found: error

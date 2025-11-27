@@ -1,0 +1,6 @@
+.winenv/
+backend/target/
+frontend/node_modules/
+__MACOSX/
+鐖櫕杞欢/dist/
+鐖櫕杞欢/build/
