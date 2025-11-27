@@ -33,3 +33,28 @@ def get_desktop_path():
     except Exception:
         return os.path.expanduser("~")
 
+def get_documents_path():
+    """
+    Returns user's Documents directory in a cross-platform way.
+    On Windows prefers OneDrive Documents if available; falls back to HOME/Documents, else HOME.
+    """
+    try:
+        home = os.path.expanduser("~")
+        candidates = []
+
+        if sys.platform.startswith("win"):
+            onedrive = os.environ.get("OneDrive")
+            if onedrive:
+                candidates.append(os.path.join(onedrive, "Documents"))
+            userprofile = os.environ.get("USERPROFILE", home)
+            candidates.append(os.path.join(userprofile, "Documents"))
+            candidates.append(os.path.join(home, "Documents"))
+        else:
+            candidates.append(os.path.join(home, "Documents"))
+
+        for p in candidates:
+            if p and os.path.isdir(p):
+                return p
+        return home
+    except Exception:
+        return os.path.expanduser("~")

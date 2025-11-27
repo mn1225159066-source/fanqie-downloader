@@ -2,6 +2,14 @@ import streamlit as st
 import sys
 import os
 import browser_cookie3
+import tempfile
+from pathlib import Path
+try:
+    import tkinter as tk
+    from tkinter import filedialog
+except Exception:
+    tk = None
+    filedialog = None
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -9,6 +17,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from src.core.scraper import FanqieScraper
 from src.core.utils import clean_filename, UA_CHROME, UA_EDGE, UA_FIREFOX, UA_MACOS_CHROME, UA_SAFARI, log_debug
 from src.core.path_utils import get_desktop_path
+from src.core.path_utils import get_documents_path
 import platform
 import time
 import threading
@@ -268,7 +277,7 @@ with st.expander("⚙️ 软件设置", expanded=False):
     )
 
     with st.expander("📝 启动日志", expanded=False):
-        p = "/tmp/fanqie_startup.log"
+        p = os.path.join(tempfile.gettempdir(), "fanqie_startup.log")
         try:
             if os.path.exists(p):
                 with open(p, "r", encoding="utf-8", errors="ignore") as f:
@@ -279,6 +288,71 @@ with st.expander("⚙️ 软件设置", expanded=False):
                 st.info("暂无日志")
         except Exception:
             st.info("暂无日志")
+
+    # 默认保存位置设置
+    with st.expander("🗃️ 文件保存位置", expanded=True):
+        if 'save_dir_choice' not in st.session_state:
+            st.session_state.save_dir_choice = "自动识别桌面"
+        if 'custom_save_dir' not in st.session_state:
+            st.session_state.custom_save_dir = ""
+        if 'save_dir' not in st.session_state:
+            st.session_state.save_dir = None
+
+        st.radio(
+            "默认保存位置",
+            ["自动识别桌面", "文档目录", "自定义目录"],
+            key="save_dir_choice",
+            help="为避免在不同电脑上使用绝对路径，建议选择自动识别或文档目录；如需自定义，请确保路径存在且有写入权限。"
+        )
+
+        def pick_directory_dialog():
+            if tk is None or filedialog is None:
+                return None
+            try:
+                root = tk.Tk()
+                root.withdraw()
+                path = filedialog.askdirectory(title="选择保存目录")
+                root.destroy()
+                return path or None
+            except Exception:
+                return None
+
+        if st.session_state.save_dir_choice == "自定义目录":
+            col_sd1, col_sd2 = st.columns([3, 1])
+            with col_sd1:
+                st.text_input("自定义目录路径", key="custom_save_dir", placeholder=r"例如 C:\\Users\\你的用户名\\Downloads")
+            with col_sd2:
+                st.write("")
+                if st.button("选择目录"):
+                    selected = pick_directory_dialog()
+                    if selected:
+                        st.session_state.custom_save_dir = selected
+                        st.success(f"已选择目录：{selected}")
+                    else:
+                        st.info("无法打开系统目录选择，已启用手动输入")
+
+            if st.button("保存并验证目录"):
+                target = st.session_state.custom_save_dir.strip()
+                if target:
+                    try:
+                        os.makedirs(target, exist_ok=True)
+                        st.session_state.save_dir = target
+                        st.success(f"默认保存位置已设置：{target}")
+                    except Exception as e:
+                        st.error(f"目录不可用：{e}")
+                else:
+                    st.error("请输入或选择有效目录路径")
+        else:
+            try:
+                if st.session_state.save_dir_choice == "自动识别桌面":
+                    detected = get_desktop_path()
+                else:
+                    detected = get_documents_path()
+                os.makedirs(detected, exist_ok=True)
+                st.session_state.save_dir = detected
+                st.info(f"默认保存位置：{detected}")
+            except Exception as e:
+                st.error(f"保存位置不可用：{e}")
 
 # Sidebar for app control
 # Removed as per user request
@@ -385,32 +459,62 @@ with col_c2:
     st.write("") 
     if st.button("🖥️ 自动获取 Cookie"):
         with st.spinner("正在从浏览器获取 Cookie..."):
-            found_cookies = get_browser_cookies("fanqienovel.com")
+            # 根据用户选择限制尝试范围，避免无关错误
+            found_cookies = []
+            try:
+                if browser_type == "Chrome / Edge":
+                    # 优先 Chrome，其次 Edge
+                    try:
+                        cj = browser_cookie3.chrome(domain_name="fanqienovel.com")
+                        lst = list(cj)
+                        if not lst:
+                            lst = [c for c in list(browser_cookie3.chrome()) if (c.domain and ("fanqie" in c.domain or "fqnovel" in c.domain or "fanqienovel" in c.domain))]
+                        if lst:
+                            found_cookies.append(("Chrome", lst))
+                    except Exception:
+                        pass
+                    if not found_cookies:
+                        try:
+                            cj = browser_cookie3.edge(domain_name="fanqienovel.com")
+                            lst = list(cj)
+                            if not lst:
+                                lst = [c for c in list(browser_cookie3.edge()) if (c.domain and ("fanqie" in c.domain or "fqnovel" in c.domain or "fanqienovel" in c.domain))]
+                            if lst:
+                                found_cookies.append(("Edge", lst))
+                        except Exception:
+                            pass
+                elif browser_type == "Firefox":
+                    try:
+                        cj = browser_cookie3.firefox(domain_name="fanqienovel.com")
+                        lst = list(cj)
+                        if not lst:
+                            lst = [c for c in list(browser_cookie3.firefox()) if (c.domain and ("fanqie" in c.domain or "fqnovel" in c.domain or "fanqienovel" in c.domain))]
+                        if lst:
+                            found_cookies.append(("Firefox", lst))
+                    except Exception:
+                        pass
+                else:
+                    st.warning("Safari 暂不支持自动读取 Cookie，请在上方手动输入。")
+            except Exception as e:
+                st.error(f"读取浏览器 Cookie 失败：{e}")
+
             if found_cookies:
-                # Prioritize Chrome or first found
                 name, jar = found_cookies[0]
                 cookie_str_val = format_cookie_str(jar)
-                
-                # Determine User-Agent based on browser
                 ua = None
                 if name == "Chrome":
-                    if platform.system() == 'Darwin':
-                        ua = UA_MACOS_CHROME
-                    else:
-                        ua = UA_CHROME
+                    ua = UA_MACOS_CHROME if platform.system() == 'Darwin' else UA_CHROME
                 elif name == "Edge":
                     ua = UA_EDGE
                 elif name == "Firefox":
                     ua = UA_FIREFOX
 
-                # We can't update text_input programmatically easily without rerun or session state
-                # But we can store it in session state and reload
                 st.session_state['auto_cookie'] = cookie_str_val
                 st.session_state['auto_ua'] = ua
                 st.success(f"已从 {name} 获取 Cookie! (长度: {len(cookie_str_val)} 字符)")
             else:
-                st.error("未在常用浏览器(Chrome/Edge/Firefox)中找到番茄小说 Cookie，请先在浏览器登录番茄小说网。")
-                st.warning("如果浏览器已打开，请尝试关闭浏览器后重试，或检查是否已登录。")
+                st.error("未找到番茄小说 Cookie，请确认已在对应浏览器登录番茄账号并访问过 VIP 章节。")
+                st.info("可在浏览器控制台输入 document.cookie 复制后粘贴到上方输入框。")
 
 # Use session state cookie if available and input is empty
 if 'auto_cookie' in st.session_state and not cookie_str:
@@ -422,21 +526,22 @@ if 'novel_data' not in st.session_state:
 if 'chapters' not in st.session_state:
     st.session_state.chapters = []
 
-if st.button("获取信息"):
-    if not url:
-        st.error("请输入链接")
-    else:
-        with st.spinner("正在获取小说信息..."):
-            user_agent = st.session_state.get('auto_ua')
-            if not user_agent:
-                if browser_type == "Safari":
-                    user_agent = UA_SAFARI
-                elif browser_type == "Firefox":
-                    user_agent = UA_FIREFOX
-                else:
-                    user_agent = UA_MACOS_CHROME if platform.system() == 'Darwin' else UA_CHROME
+    if st.button("获取信息"):
+        if not url:
+            st.error("请输入链接")
+        else:
+            with st.spinner("正在获取小说信息..."):
+                user_agent = st.session_state.get('auto_ua')
+                if not user_agent:
+                    if browser_type == "Safari":
+                        user_agent = UA_SAFARI
+                    elif browser_type == "Firefox":
+                        user_agent = UA_FIREFOX
+                    else:
+                        user_agent = UA_MACOS_CHROME if platform.system() == 'Darwin' else UA_CHROME
             
-            scraper = FanqieScraper(cookie_str, user_agent)
+            save_dir = st.session_state.get('save_dir') or get_desktop_path()
+            scraper = FanqieScraper(cookie_str, user_agent, save_dir=save_dir)
             metadata = scraper.get_novel_metadata(url)
             if metadata:
                 st.session_state.novel_data = metadata
@@ -480,7 +585,8 @@ if st.session_state.novel_data:
             else:
                 user_agent = UA_MACOS_CHROME if platform.system() == 'Darwin' else UA_CHROME
                 
-        scraper = FanqieScraper(cookie_str, user_agent)
+        save_dir = st.session_state.get('save_dir') or get_desktop_path()
+        scraper = FanqieScraper(cookie_str, user_agent, save_dir=save_dir)
         
         # Determine chapters to download
         chapters_to_download = []
@@ -546,13 +652,13 @@ if st.session_state.novel_data:
                 file_ext = "txt"
                 mime_type = "text/plain"
                     
-                # Auto-save to Desktop (robust path)
+                # 自动保存到用户选择的目录（或自动识别的桌面/文档）
                 try:
-                    desktop_path = get_desktop_path()
-                    save_path = os.path.join(desktop_path, f"{filename}.{file_ext}")
+                    save_dir = st.session_state.get('save_dir') or get_desktop_path()
+                    save_path = os.path.join(save_dir, f"{filename}.{file_ext}")
                     with open(save_path, "w", encoding="utf-8") as f:
                         f.write(file_content)
-                    st.success(f"✅ 文件已保存到桌面/文档: **{save_path}**")
+                    st.success(f"✅ 文件已保存到: **{save_path}**")
                 except Exception as e:
                     st.error(f"自动保存失败: {e}")
 
@@ -563,4 +669,3 @@ if st.session_state.novel_data:
                     mime=mime_type
                 )
                 st.balloons()
-

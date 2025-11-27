@@ -32,11 +32,18 @@ FANQIE_CHAR_MAP = (
 )
 
 class FanqieScraper:
-    def __init__(self, cookie_str=None, user_agent=None):
+    def __init__(self, cookie_str=None, user_agent=None, save_dir=None):
         self.headers = get_headers(cookie_str, user_agent)
         self.base_url = "https://fanqienovel.com"
         # Cache for font maps: font_url -> map_dict
         self.font_maps = {}
+        # 保存目录（用于错误页导出等），如果未设置则使用桌面/文档回退
+        try:
+            if save_dir:
+                os.makedirs(save_dir, exist_ok=True)
+            self.save_dir = save_dir
+        except Exception:
+            self.save_dir = None
         # Use a session for persistence
         self.session = requests.Session()
         self.session.headers.update(self.headers)
@@ -114,7 +121,8 @@ class FanqieScraper:
                 
                 # Debug: Save error page
                 try:
-                    debug_dir = os.path.join(get_desktop_path(), "fanqie_errors")
+                    base_dir = self.save_dir or get_desktop_path()
+                    debug_dir = os.path.join(base_dir, "fanqie_errors")
                     os.makedirs(debug_dir, exist_ok=True)
                     chapter_id = chapter_url.split('/')[-1]
                     with open(os.path.join(debug_dir, f"error_{chapter_id}.html"), 'w', encoding='utf-8') as f:
@@ -331,4 +339,3 @@ class FanqieScraper:
             txt_content += text + "\n\n" + "="*20 + "\n\n"
             
         return txt_content
-
