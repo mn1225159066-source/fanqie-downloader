@@ -28,13 +28,34 @@ jobs:
         run: |
           Set-Location .\鐖櫕杞欢
           python -m pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-          python -m pip install --no-cache-dir pyinstaller -i https://pypi.tuna.tsinghua.edu.cn/simple
+          python -m pip install --no-cache-dir pyinstaller pillow -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+      - name: Generate ICO from icon.jpg
+        shell: pwsh
+        run: |
+          Set-Location .\鐖櫕杞欢
+          python - << 'PY'
+          from PIL import Image
+          im = Image.open('icon.jpg').convert('RGBA')
+          im.save('icon.ico', sizes=[(256,256),(128,128),(64,64),(32,32),(16,16)])
+          print('icon.ico generated')
+          PY
 
       - name: Build Windows executable with PyInstaller
         shell: pwsh
         run: |
           Set-Location .\鐖櫕杞欢
           python -m PyInstaller --clean --noconfirm FanqieDownloader_win.spec
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y
+
+      - name: Build Installer (Inno Setup)
+        shell: pwsh
+        run: |
+          Set-Location .\鐖櫕杞欢
+          iscc .\installer.iss
 
       - name: Archive build artifacts
         uses: actions/upload-artifact@v4
@@ -43,4 +64,12 @@ jobs:
           path: |
             鐖櫕杞欢/dist/**
             鐖櫕杞欢/build/**
+          if-no-files-found: error
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FanqieDownloader-Setup
+          path: |
+            鐖櫕杞欢/dist/installer/FanqieDownloader-Setup.exe
           if-no-files-found: error
