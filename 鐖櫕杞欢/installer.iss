@@ -15,6 +15,7 @@ OutputBaseFilename=FanqieDownloader-Setup
 Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
 WizardStyle=modern
 ; 安装向导与卸载显示图标
 SetupIconFile=icon.ico
@@ -26,10 +27,11 @@ Source: "dist\FanqieDownloader\*"; DestDir: "{app}"; Flags: recursesubdirs creat
 
 [Icons]
 Name: "{group}\FanqieDownloader"; Filename: "{app}\FanqieDownloader.exe"
-Name: "{commondesktop}\FanqieDownloader"; Filename: "{app}\FanqieDownloader.exe"; Tasks: desktopicon
+; 为当前用户创建桌面快捷方式，避免需要管理员权限写入公共桌面
+Name: "{userdesktop}\FanqieDownloader"; Filename: "{app}\FanqieDownloader.exe"; Tasks: desktopicon
 
 [Tasks]
-Name: "desktopicon"; Description: "在桌面创建快捷方式"; Flags: unchecked
+Name: "desktopicon"; Description: "在桌面创建快捷方式（当前用户）"; Flags: checked
 
 [Run]
 Filename: "{app}\FanqieDownloader.exe"; Description: "安装完成后运行 FanqieDownloader"; Flags: nowait postinstall skipifsilent
