@@ -31,7 +31,7 @@ Name: "{group}\FanqieDownloader"; Filename: "{app}\FanqieDownloader.exe"
 Name: "{userdesktop}\FanqieDownloader"; Filename: "{app}\FanqieDownloader.exe"; Tasks: desktopicon
 
 [Tasks]
-Name: "desktopicon"; Description: "在桌面创建快捷方式（当前用户）"; Flags: checked
+Name: "desktopicon"; Description: "在桌面创建快捷方式（当前用户）"
 
 [Run]
 Filename: "{app}\FanqieDownloader.exe"; Description: "安装完成后运行 FanqieDownloader"; Flags: nowait postinstall skipifsilent
