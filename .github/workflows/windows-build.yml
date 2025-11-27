@@ -34,12 +34,8 @@ jobs:
         shell: pwsh
         run: |
           Set-Location .\鐖櫕杞欢
-          python - << 'PY'
-          from PIL import Image
-          im = Image.open('icon.jpg').convert('RGBA')
-          im.save('icon.ico', sizes=[(256,256),(128,128),(64,64),(32,32),(16,16)])
-          print('icon.ico generated')
-          PY
+          python -c "from PIL import Image; im=Image.open('icon.jpg').convert('RGBA'); im.save('icon.ico', sizes=[(256,256),(128,128),(64,64),(32,32),(16,16)])"
+          if (Test-Path .\icon.ico) { Write-Host 'icon.ico generated' } else { Write-Error 'icon.ico not generated' }
 
       - name: Build Windows executable with PyInstaller
         shell: pwsh
